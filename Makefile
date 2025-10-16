@@ -215,12 +215,44 @@ test-agent:
 		--resource_id=$(AGENT_ID) \
 		--user_id=$$USER_ID
 
-# Deploy to Cloud Run (custom deployment)
-deploy-cloudrun:
+# Build and push Docker image
+IMAGE_NAME ?= $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(SERVICE_NAME)/$(SERVICE_NAME)
+TAG ?= latest
+
+build:
+	@echo "Building Docker image..."
+	@if [ -z "$(PROJECT_ID)" ] || [ -z "$(REGION)" ]; then \
+		echo "Error: PROJECT_ID and REGION must be set"; \
+		exit 1; \
+	fi
+	docker build --platform linux/amd64 -t $(IMAGE_NAME):$(TAG) .
+	@echo "Image built: $(IMAGE_NAME):$(TAG)"
+
+push: build
+	@echo "Pushing image to Artifact Registry..."
+	docker push $(IMAGE_NAME):$(TAG)
+	@echo "Image pushed successfully"
+
+# Deploy to Cloud Run
+deploy-cloudrun: push
 	@echo "Deploying to Cloud Run..."
-	@echo "Note: This requires a Dockerfile and container setup"
-	@echo "Cloud Run deployment is not yet configured for ADK agents"
-	@echo "Use 'make deploy-agent' to deploy to Vertex AI Agent Engine instead"
+	@if [ -z "$(PROJECT_ID)" ] || [ -z "$(REGION)" ]; then \
+		echo "Error: Missing required environment variables"; \
+		exit 1; \
+	fi
+	gcloud run deploy $(SERVICE_NAME) \
+		--image $(IMAGE_NAME):$(TAG) \
+		--platform managed \
+		--region $(REGION) \
+		--set-env-vars="GOOGLE_CLOUD_PROJECT=$(PROJECT_ID),GOOGLE_CLOUD_LOCATION=$(LOCATION),GOOGLE_GENAI_USE_VERTEXAI=true" \
+		--allow-unauthenticated \
+		--memory=4Gi \
+		--cpu=2 \
+		--timeout=900 \
+		--max-instances=5
+	@echo "Deployment completed"
+	@echo "Service URL:"
+	@gcloud run services describe $(SERVICE_NAME) --region=$(REGION) --format="value(status.url)"
 
 # View logs from Vertex AI
 logs:
