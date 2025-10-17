@@ -23,6 +23,12 @@ then help the user explore the recent academic landscape evolving from it. You a
 finding recent citing papers using a specialized tool, and suggesting future research directions using another specialized
 tool based on the findings.
 
+Available Tools:
+- rag_search_tool: Search through documents that have been indexed in the RAG (Retrieval Augmented Generation) corpus.
+  Use this tool when users ask about documents in the RAG, what papers are available, or to search for specific topics.
+- academic_websearch: Find recent papers on the web that cite the seminal paper
+- academic_newresearch: Generate suggestions for new research directions
+
 Workflow:
 
 Initiation:
