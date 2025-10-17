@@ -15,137 +15,105 @@
 """RAG search tool for retrieving relevant information from indexed documents."""
 
 import os
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
-from google.adk.tools.base_tool import BaseTool
+from google.adk.tools.retrieval.vertex_ai_rag_retrieval import VertexAiRagRetrieval
+from google.adk.tools.tool_context import ToolContext
+from google.genai import types
+from typing_extensions import override
+from google.adk.utils.model_name_utils import is_gemini_2_model
+
+if TYPE_CHECKING:
+    from google.adk.models import LlmRequest
 
 
-class RagSearchTool(BaseTool):
-    """Tool for searching through indexed documents using Vertex AI RAG Engine."""
+class ConditionalRagRetrieval(VertexAiRagRetrieval):
+    """
+    A RAG retrieval tool that conditionally disables itself when multimodal content is present.
 
-    def __init__(self):
-        """Initialize the RAG search tool."""
-        super().__init__(
-            name="rag_search_tool",
-            description=(
-                "Search through indexed documents using RAG (Retrieval Augmented Generation). "
-                "This tool searches through a collection of documents that have been previously "
-                "indexed and returns the most relevant passages based on the query."
+    Gemini's RAG grounding doesn't support multimodal inputs (PDFs, images), so we skip
+    RAG when files are attached and only use it for text-only queries.
+    """
+
+    @override
+    async def process_llm_request(
+        self,
+        *,
+        tool_context: ToolContext,
+        llm_request: 'LlmRequest',
+    ) -> None:
+        # Check if there are any non-text parts in the contents
+        has_multimodal_content = False
+
+        if llm_request.contents:
+            for content in llm_request.contents:
+                if hasattr(content, 'parts'):
+                    for part in content.parts:
+                        # If part is not just text, it's multimodal
+                        if not isinstance(part, types.Part) or not hasattr(part, 'text'):
+                            # Check if it has file_data, inline_data, or other non-text attributes
+                            if hasattr(part, 'file_data') or hasattr(part, 'inline_data'):
+                                has_multimodal_content = True
+                                break
+                            # For types.Part, check if it's actually text
+                            if isinstance(part, types.Part):
+                                # If it doesn't have text attribute or text is None, it's likely multimodal
+                                if not hasattr(part, 'text') or (hasattr(part, 'text') and part.text is None):
+                                    has_multimodal_content = True
+                                    break
+                if has_multimodal_content:
+                    break
+
+        # Only add RAG if there's no multimodal content
+        if not has_multimodal_content:
+            # Use the parent class logic to add RAG grounding
+            await super().process_llm_request(
+                tool_context=tool_context,
+                llm_request=llm_request
             )
+        # If has_multimodal_content, we skip adding RAG grounding entirely
+
+
+def get_rag_search_tool():
+    """
+    Create and return a Vertex AI RAG retrieval tool configured from environment variables.
+
+    Returns:
+        ConditionalRagRetrieval: Configured RAG retrieval tool
+    """
+    project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+    location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
+    rag_corpus_id = os.getenv("RAG_CORPUS_NAME")
+
+    if not project_id:
+        raise ValueError("GOOGLE_CLOUD_PROJECT environment variable not set")
+
+    if not rag_corpus_id:
+        raise ValueError("RAG_CORPUS_NAME environment variable not set")
+
+    # Build full corpus resource name if only corpus ID is provided
+    if not rag_corpus_id.startswith("projects/"):
+        rag_corpus_name = (
+            f"projects/{project_id}/locations/{location}/ragCorpora/{rag_corpus_id}"
         )
+    else:
+        rag_corpus_name = rag_corpus_id
 
-    def get_parameters_schema(self) -> dict[str, Any]:
-        """Return the JSON schema for the tool's parameters."""
-        return {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "The search query or question to find relevant information for.",
-                },
-                "max_results": {
-                    "type": "integer",
-                    "description": "Maximum number of relevant passages to return",
-                    "default": 5,
-                },
-            },
-            "required": ["query"],
-        }
-
-    def run(self, query: str, max_results: int = 5) -> str:
-        """
-        Execute the RAG search.
-
-        Args:
-            query: The search query or question to find relevant information for.
-            max_results: Maximum number of relevant passages to return (default: 5).
-
-        Returns:
-            A string containing the most relevant passages found in the documents,
-            formatted with source information.
-        """
-        try:
-            project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
-            location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
-
-            if not project_id:
-                return "Error: GOOGLE_CLOUD_PROJECT environment variable not set."
-
-            return self._search_with_rag_engine(query, project_id, location, max_results)
-
-        except Exception as e:
-            import traceback
-            error_details = traceback.format_exc()
-            return f"Error performing RAG search: {str(e)}\n\nDetails:\n{error_details}"
-
-    def _search_with_rag_engine(
-        self, query: str, project_id: str, location: str, max_results: int
-    ) -> str:
-        """
-        Perform semantic search using Vertex AI RAG Engine.
-
-        Args:
-            query: Search query
-            project_id: GCP project ID
-            location: GCP location
-            max_results: Maximum number of results
-
-        Returns:
-            Formatted search results
-        """
-        try:
-            from vertexai import rag
-            import vertexai
-
-            vertexai.init(project=project_id, location=location)
-
-            rag_corpus_name = os.getenv("RAG_CORPUS_NAME")
-            if not rag_corpus_name:
-                return (
-                    "RAG corpus not configured. Please set RAG_CORPUS_NAME in .env\n"
-                    "Format: projects/PROJECT_ID/locations/LOCATION/ragCorpora/CORPUS_ID"
-                )
-
-            # Build full corpus resource name if only corpus ID is provided
-            if not rag_corpus_name.startswith("projects/"):
-                rag_corpus_name = (
-                    f"projects/{project_id}/locations/{location}/ragCorpora/{rag_corpus_name}"
-                )
-
-            rag_retrieval_config = rag.RagRetrievalConfig(
-                top_k=max_results,
-                filter=rag.Filter(vector_distance_threshold=0.3),
-            )
-
-            response = rag.retrieval_query(
-                rag_resources=[
-                    rag.RagResource(
-                        rag_corpus=rag_corpus_name,
-                    )
-                ],
-                text=query,
-                rag_retrieval_config=rag_retrieval_config,
-            )
-
-            if not response or not hasattr(response, 'contexts'):
-                return "No relevant documents found for the query."
-
-            formatted_results = []
-            for idx, context in enumerate(response.contexts.contexts[:max_results], 1):
-                formatted_results.append(
-                    f"**Result {idx}**\n{context.text}\n"
-                    f"Source: {context.source_uri if hasattr(context, 'source_uri') else 'N/A'}"
-                )
-
-            return "\n---\n".join(formatted_results)
-
-        except ImportError:
-            return "Vertex AI SDK not available. Install with: pip install google-cloud-aiplatform"
-        except Exception as e:
-            import traceback
-            error_details = traceback.format_exc()
-            return f"Error searching RAG corpus: {str(e)}\n\nDetails:\n{error_details}"
+    return ConditionalRagRetrieval(
+        name="rag_search",
+        description=(
+            "Search through indexed documents using RAG (Retrieval Augmented Generation). "
+            "This tool searches through a collection of documents that have been previously "
+            "indexed and returns the most relevant passages based on the query."
+        ),
+        rag_corpora=[rag_corpus_name],
+        similarity_top_k=5,
+        vector_distance_threshold=0.3,
+    )
 
 
-# Create a singleton instance for use in agents
-rag_search_tool = RagSearchTool()
+# Create the tool instance
+rag_search_tool = get_rag_search_tool()
+
+# Also export as rag_search for backwards compatibility
+rag_search = rag_search_tool

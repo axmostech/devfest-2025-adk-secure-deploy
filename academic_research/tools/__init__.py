@@ -14,6 +14,6 @@
 
 """Custom tools for Academic Research Agent."""
 
-from .rag_search import rag_search_tool
+from .rag_search import rag_search, rag_search_tool
 
-__all__ = ["rag_search_tool"]
+__all__ = ["rag_search", "rag_search_tool"]

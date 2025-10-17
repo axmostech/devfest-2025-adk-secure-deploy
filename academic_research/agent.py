@@ -22,7 +22,7 @@ from google.adk.tools.agent_tool import AgentTool
 from . import prompt
 from .sub_agents.academic_newresearch import academic_newresearch_agent
 from .sub_agents.academic_websearch import academic_websearch_agent
-from .tools.rag_search import rag_search_tool
+from .tools.rag_search import rag_search
 
 MODEL = os.getenv("VERTEX_AI_MODEL", "gemini-2.5-pro")
 
@@ -43,7 +43,7 @@ academic_coordinator = LlmAgent(
     tools=[
         AgentTool(agent=academic_websearch_agent),
         AgentTool(agent=academic_newresearch_agent),
-        rag_search_tool,
+        rag_search,
     ],
 )
 
