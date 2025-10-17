@@ -18,4 +18,5 @@ ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8080
 
-CMD ["python", "-m", "google.adk.servers.flask_server", "--agent", "academic_research.agent:root_agent", "--port", "8080"]
+# Ejecutar ADK web interface (equivalente a comando: adk web)
+CMD ["adk", "web", "--port", "8080", "--host", "0.0.0.0"]
