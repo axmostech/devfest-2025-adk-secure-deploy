@@ -7,7 +7,7 @@ PROJECT_ID ?= $(GOOGLE_CLOUD_PROJECT)
 LOCATION ?= $(GOOGLE_CLOUD_LOCATION)
 REGION ?= $(GOOGLE_CLOUD_REGION)
 BUCKET ?= $(GOOGLE_CLOUD_STORAGE_BUCKET)
-SERVICE_NAME ?= academic-research-agent
+SERVICE_NAME ?= devfest-academic-research
 DATASTORE_ID ?= academic-docs
 
 .PHONY: help setup install test run web deploy-agent deploy-cloudrun logs clean
@@ -83,6 +83,11 @@ install-dev:
 	pip install -r requirements.txt
 	pip install pytest black pytest-asyncio pandas tabulate absl-py
 	@echo "Installation completed"
+
+auth-podman:
+	@echo "Authenticating Podman with Artifact Registry..."
+	@gcloud auth print-access-token | podman login -u oauth2accesstoken --password-stdin $(REGION)-docker.pkg.dev
+	@echo "Podman authentication completed"
 
 # Authenticate with Google Cloud
 auth:
@@ -217,17 +222,17 @@ build:
 		echo "Error: PROJECT_ID and REGION must be set"; \
 		exit 1; \
 	fi
-	docker build --platform linux/amd64 -t $(IMAGE_NAME):$(TAG) .
+	podman build --platform linux/amd64 -t $(IMAGE_NAME):$(TAG) .
 	@echo "Image built: $(IMAGE_NAME):$(TAG)"
 
-push: build
+push: build auth-podman
 	@echo "Pushing image to Artifact Registry..."
-	docker push $(IMAGE_NAME):$(TAG)
+	podman push $(IMAGE_NAME):$(TAG)
 	@echo "Image pushed successfully"
 
-# Deploy to Cloud Run
+# Deploy to Cloud Run (público - bypassa Domain Restricted Sharing)
 deploy-cloudrun: push
-	@echo "Deploying to Cloud Run..."
+	@echo "Deploying to Cloud Run (public access)..."
 	@if [ -z "$(PROJECT_ID)" ] || [ -z "$(REGION)" ]; then \
 		echo "Error: Missing required environment variables"; \
 		exit 1; \
@@ -237,10 +242,10 @@ deploy-cloudrun: push
 		--platform managed \
 		--region $(REGION) \
 		--set-env-vars="GOOGLE_CLOUD_PROJECT=$(PROJECT_ID),GOOGLE_CLOUD_LOCATION=$(LOCATION),GOOGLE_GENAI_USE_VERTEXAI=true" \
-		--allow-unauthenticated \
 		--memory=4Gi \
 		--cpu=2 \
 		--timeout=900 \
+		--ingress=internal-and-cloud-load-balancing \ 
 		--max-instances=5
 	@echo "Deployment completed"
 	@echo "Service URL:"
