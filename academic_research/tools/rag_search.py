@@ -17,13 +17,12 @@
 import os
 from typing import Any
 
-from google.adk.tools import tool
+from google.adk.tools import FunctionTool
 from google.cloud import aiplatform
 from vertexai.language_models import TextEmbeddingModel
 
 
-@tool
-def rag_search_tool(query: str, max_results: int = 5) -> str:
+def _rag_search_impl(query: str, max_results: int = 5) -> str:
     """
     Search through indexed documents using RAG (Retrieval Augmented Generation).
 
@@ -141,21 +140,25 @@ def _search_with_embeddings(
     Returns:
         Formatted search results
     """
-    # Initialize the text embedding model
-    model = TextEmbeddingModel.from_pretrained("text-embedding-004")
+    from .document_storage import get_store
 
-    # Generate embedding for the query
-    query_embedding = model.get_embeddings([query])[0].values
+    try:
+        store = get_store()
+        results = store.search(query, max_results)
 
-    # In a production system, you would:
-    # 1. Load document embeddings from a vector database (e.g., Vertex AI Vector Search)
-    # 2. Compute similarity scores between query and document embeddings
-    # 3. Return top k most similar documents
+        if not results:
+            return "No relevant documents found for the query."
 
-    # For now, return a message indicating setup is needed
-    return (
-        "RAG search with embeddings requires additional setup:\n"
-        "1. Index your documents in a vector database\n"
-        "2. Configure RAG_SEARCH_DATASTORE_ID in your .env file\n"
-        "3. Or implement custom vector similarity search here"
-    )
+        formatted_results = []
+        for title, chunk, similarity in results:
+            formatted_results.append(
+                f"**{title}** (similarity: {similarity:.2f})\n{chunk}\n"
+            )
+
+        return "\n---\n".join(formatted_results)
+
+    except Exception as e:
+        return f"Error searching documents: {str(e)}"
+
+
+rag_search_tool = FunctionTool(_rag_search_impl)

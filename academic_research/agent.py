@@ -14,15 +14,19 @@
 
 """Academic_Research: Research advice, related literature finding, research area proposals, web knowledge access."""
 
+import os
+
 from google.adk.agents import LlmAgent
 from google.adk.tools.agent_tool import AgentTool
+from google.adk.tools import load_artifacts, preload_memory
 
 from . import prompt
 from .sub_agents.academic_newresearch import academic_newresearch_agent
 from .sub_agents.academic_websearch import academic_websearch_agent
 from .tools.rag_search import rag_search_tool
+from .tools.index_document import index_document_tool
 
-MODEL = "gemini-2.5-pro"
+MODEL = os.getenv("VERTEX_AI_MODEL", "gemini-2.5-pro")
 
 
 academic_coordinator = LlmAgent(
@@ -33,14 +37,15 @@ academic_coordinator = LlmAgent(
         "providing research advice, locating current papers "
         "relevant to the seminal paper, generating suggestions "
         "for new research directions, accessing web resources "
-        "to acquire knowledge, and searching through indexed documents "
-        "using RAG (Retrieval Augmented Generation)"
+        "to acquire knowledge, indexing documents for retrieval, "
+        "and searching indexed documents using semantic similarity"
     ),
     instruction=prompt.ACADEMIC_COORDINATOR_PROMPT,
     output_key="seminal_paper",
     tools=[
         AgentTool(agent=academic_websearch_agent),
         AgentTool(agent=academic_newresearch_agent),
+        index_document_tool,
         rag_search_tool,
     ],
 )

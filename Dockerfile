@@ -7,12 +7,9 @@ RUN apt-get update && apt-get install -y \
     g++ \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir poetry==1.7.1
+COPY requirements.txt .
 
-COPY pyproject.toml poetry.lock* ./
-
-RUN poetry config virtualenvs.create false && \
-    poetry install --no-dev --no-interaction --no-ansi
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY academic_research/ ./academic_research/
 

@@ -74,13 +74,14 @@ setup:
 
 # Install dependencies
 install:
-	@echo "Installing dependencies with Poetry..."
-	poetry install
+	@echo "Installing dependencies..."
+	pip install -r requirements.txt
 	@echo "Installation completed"
 
 install-dev:
-	@echo "Installing with dev dependencies..."
-	poetry install --with dev,deployment
+	@echo "Installing dependencies with dev tools..."
+	pip install -r requirements.txt
+	pip install pytest black pytest-asyncio pandas tabulate absl-py
 	@echo "Installation completed"
 
 # Authenticate with Google Cloud
@@ -94,28 +95,28 @@ auth:
 # Run agent locally with ADK CLI
 run:
 	@echo "Starting agent locally..."
-	poetry run adk run academic_research
+	adk run academic_research
 
 # Start ADK web interface
 web:
 	@echo "Starting ADK web interface..."
 	@echo "Open your browser to the URL shown below"
-	poetry run adk web
+	adk web
 
 # Run tests
 test:
 	@echo "Running tests..."
-	poetry run pytest tests/
+	pytest tests/
 
 # Run evaluation
 eval:
 	@echo "Running evaluation..."
-	poetry run pytest eval/
+	pytest eval/
 
 # Format code with black
 format:
 	@echo "Formatting code with black..."
-	poetry run black academic_research/ rag/ deployment/ tests/ eval/
+	black academic_research/ rag/ deployment/ tests/ eval/
 	@echo "Code formatted"
 
 # RAG: Create Vertex AI Search datastore
@@ -125,7 +126,7 @@ rag-create:
 		echo "Error: DATASTORE_ID not set"; \
 		exit 1; \
 	fi
-	poetry run python rag/setup_rag.py \
+	python rag/setup_rag.py \
 		--action=create \
 		--datastore_id=$(DATASTORE_ID) \
 		--datastore_name="Academic Research Documents"
@@ -141,7 +142,7 @@ rag-upload:
 		echo "Usage: make rag-upload DOCS_DIR=/path/to/documents"; \
 		exit 1; \
 	fi
-	poetry run python rag/index_documents.py --source_dir=$(DOCS_DIR)
+	python rag/index_documents.py --source_dir=$(DOCS_DIR)
 
 # RAG: Import documents into datastore
 rag-import:
@@ -152,7 +153,7 @@ rag-import:
 	fi
 	@GCS_URI="gs://$(BUCKET)/rag-documents/*"; \
 	echo "Importing from: $$GCS_URI"; \
-	poetry run python rag/setup_rag.py \
+	python rag/setup_rag.py \
 		--action=import \
 		--datastore_id=$(DATASTORE_ID) \
 		--gcs_uri="$$GCS_URI"
@@ -160,7 +161,7 @@ rag-import:
 # RAG: List all datastores
 rag-list:
 	@echo "Listing datastores..."
-	poetry run python rag/setup_rag.py --action=list
+	python rag/setup_rag.py --action=list
 
 # RAG: Delete datastore
 rag-delete:
@@ -169,7 +170,7 @@ rag-delete:
 		echo "Error: DATASTORE_ID not set"; \
 		exit 1; \
 	fi
-	poetry run python rag/setup_rag.py \
+	python rag/setup_rag.py \
 		--action=delete \
 		--datastore_id=$(DATASTORE_ID)
 
@@ -181,7 +182,7 @@ deploy-agent:
 		echo "Please check your .env file"; \
 		exit 1; \
 	fi
-	poetry run python deployment/deploy.py --create
+	python deployment/deploy.py --create
 	@echo ""
 	@echo "Deployment completed"
 	@echo "To test: make test-agent AGENT_ID=your-agent-id"
@@ -189,7 +190,7 @@ deploy-agent:
 # List deployed agents
 list-agents:
 	@echo "Listing deployed agents..."
-	poetry run python deployment/deploy.py --list
+	python deployment/deploy.py --list
 
 # Delete deployed agent
 delete-agent:
@@ -199,7 +200,7 @@ delete-agent:
 		echo "Usage: make delete-agent AGENT_ID=123456789"; \
 		exit 1; \
 	fi
-	poetry run python deployment/deploy.py --delete --resource_id=$(AGENT_ID)
+	python deployment/deploy.py --delete --resource_id=$(AGENT_ID)
 
 # Test deployed agent
 test-agent:
@@ -211,7 +212,7 @@ test-agent:
 	fi
 	@USER_ID=$${USER_ID:-test-user-$$RANDOM}; \
 	echo "Using USER_ID: $$USER_ID"; \
-	poetry run python deployment/test_deployment.py \
+	python deployment/test_deployment.py \
 		--resource_id=$(AGENT_ID) \
 		--user_id=$$USER_ID
 
@@ -294,8 +295,8 @@ clean:
 
 # Clean everything including dependencies
 clean-all: clean
-	@echo "Removing Poetry virtual environment..."
-	poetry env remove --all || true
+	@echo "Removing Python cache and virtual environments..."
+	rm -rf venv/ .venv/ env/
 	@echo "Complete cleanup finished"
 
 # Complete setup flow for new projects

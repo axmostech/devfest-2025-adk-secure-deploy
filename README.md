@@ -33,10 +33,7 @@ Este diagrama muestra la arquitectura detallada de los agentes y herramientas ut
 ### Prerrequisitos
 
 - Python 3.11+
-- Poetry (gestor de dependencias)
-  ```bash
-  pip install poetry
-  ```
+- pip (gestor de paquetes de Python)
 - Proyecto en Google Cloud Platform
 - Google Cloud CLI ([instrucciones de instalación](https://cloud.google.com/sdk/docs/install))
 - Docker (para deployment en Cloud Run)
@@ -52,6 +49,17 @@ make install-dev
 
 # Autenticar con Google Cloud
 make auth
+```
+
+O manualmente:
+
+```bash
+# Crear entorno virtual (opcional pero recomendado)
+python -m venv venv
+source venv/bin/activate  # En Windows: venv\Scripts\activate
+
+# Instalar dependencias
+pip install -r requirements.txt
 ```
 
 ## Configuración
