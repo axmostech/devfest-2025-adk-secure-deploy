@@ -119,58 +119,49 @@ format:
 	black academic_research/ rag/ deployment/ tests/ eval/
 	@echo "Code formatted"
 
-# RAG: Create Vertex AI Search datastore
-rag-create:
-	@echo "Creating Vertex AI Search datastore..."
-	@if [ -z "$(DATASTORE_ID)" ]; then \
-		echo "Error: DATASTORE_ID not set"; \
-		exit 1; \
-	fi
-	python rag/setup_rag.py \
-		--action=create \
-		--datastore_id=$(DATASTORE_ID) \
-		--datastore_name="Academic Research Documents"
-	@echo ""
-	@echo "Add this to your .env file:"
-	@echo "RAG_SEARCH_DATASTORE_ID=$(DATASTORE_ID)"
-
-# RAG: Upload documents to Cloud Storage
-rag-upload:
-	@echo "Uploading documents to Cloud Storage..."
-	@if [ -z "$(DOCS_DIR)" ]; then \
-		echo "Error: DOCS_DIR not set"; \
-		echo "Usage: make rag-upload DOCS_DIR=/path/to/documents"; \
-		exit 1; \
-	fi
-	python rag/index_documents.py --source_dir=$(DOCS_DIR)
-
-# RAG: Import documents into datastore
-rag-import:
-	@echo "Importing documents into datastore..."
-	@if [ -z "$(DATASTORE_ID)" ]; then \
-		echo "Error: DATASTORE_ID not set"; \
-		exit 1; \
-	fi
-	@GCS_URI="gs://$(BUCKET)/rag-documents/*"; \
-	echo "Importing from: $$GCS_URI"; \
-	python rag/setup_rag.py \
-		--action=import \
-		--datastore_id=$(DATASTORE_ID) \
-		--gcs_uri="$$GCS_URI"
-
-# RAG: List all datastores
+# RAG: Check indexed documents in GCS
 rag-list:
-	@echo "Listing datastores..."
-	python rag/setup_rag.py --action=list
+	@echo "Listing indexed documents in RAG system..."
+	@echo "Documents are stored in: gs://$(BUCKET)/rag_documents/"
+	gsutil ls -r gs://$(BUCKET)/rag_documents/ || echo "No documents indexed yet"
 
-# RAG: Delete datastore
-rag-delete:
-	@echo "Deleting datastore..."
+# RAG: Clear all indexed documents
+rag-clear:
+	@echo "Clearing all indexed documents..."
+	@echo "This will delete all documents from: gs://$(BUCKET)/rag_documents/"
+	@read -p "Are you sure? [y/N] " confirm; \
+	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
+		gsutil -m rm -r gs://$(BUCKET)/rag_documents/**; \
+		echo "All documents cleared"; \
+	else \
+		echo "Cancelled"; \
+	fi
+
+# RAG: Setup bucket for RAG storage
+rag-setup:
+	@echo "Setting up RAG storage bucket..."
+	@if [ -z "$(BUCKET)" ]; then \
+		echo "Error: BUCKET not set in .env"; \
+		exit 1; \
+	fi
+	@echo "Checking if bucket exists..."
+	@gsutil ls gs://$(BUCKET) >/dev/null 2>&1 || \
+		(echo "Creating bucket..." && gsutil mb -l $(REGION) gs://$(BUCKET))
+	@echo "RAG storage ready at: gs://$(BUCKET)/rag_documents/"
+	@echo ""
+	@echo "Configuration:"
+	@echo "GOOGLE_CLOUD_STORAGE_BUCKET=$(BUCKET)"
+	@echo "RAG_EMBEDDING_MODEL=text-embedding-004"
+
+# RAG (Legacy): For Vertex AI Search - kept for reference
+rag-vertex-search-setup:
+	@echo "Setting up Vertex AI Search (advanced option)..."
+	@echo "See .scripts/rag/setup_rag.py for configuration"
 	@if [ -z "$(DATASTORE_ID)" ]; then \
 		echo "Error: DATASTORE_ID not set"; \
 		exit 1; \
 	fi
-	python rag/setup_rag.py \
+	python .scripts/rag/setup_rag.py \
 		--action=delete \
 		--datastore_id=$(DATASTORE_ID)
 
@@ -182,7 +173,7 @@ deploy-agent:
 		echo "Please check your .env file"; \
 		exit 1; \
 	fi
-	python deployment/deploy.py --create
+	python .scripts/deployment/deploy.py --create
 	@echo ""
 	@echo "Deployment completed"
 	@echo "To test: make test-agent AGENT_ID=your-agent-id"
@@ -190,7 +181,7 @@ deploy-agent:
 # List deployed agents
 list-agents:
 	@echo "Listing deployed agents..."
-	python deployment/deploy.py --list
+	python .scripts/deployment/deploy.py --list
 
 # Delete deployed agent
 delete-agent:

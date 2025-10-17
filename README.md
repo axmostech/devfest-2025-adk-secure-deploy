@@ -1,5 +1,7 @@
 # Investigación Académica con ADK
 
+> Basado en el sample de [google/adk-samples](https://github.com/google/adk-samples) con mejoras de RAG semántico y procesamiento multimodal.
+
 ## Descripción General
 
 Agente impulsado por IA diseñado para facilitar la exploración del panorama académico relacionado con trabajos de investigación seminales. Reconociendo el desafío que enfrentan los investigadores al navegar por el creciente cuerpo de literatura influenciado por estudios fundamentales, este agente ofrece un enfoque simplificado.
@@ -64,20 +66,28 @@ pip install -r requirements.txt
 
 ## Configuración
 
-1. Edita el archivo `.env` con tus valores:
+1. Copia `.env.example` a `.env` y edita con tus valores:
 
 ```bash
+# Google Cloud Configuration
 GOOGLE_CLOUD_PROJECT=tu-proyecto-id
-GOOGLE_CLOUD_LOCATION=us-central1
-GOOGLE_CLOUD_REGION=us-central1
+GOOGLE_CLOUD_REGION=us-east4
+GOOGLE_CLOUD_LOCATION=us-east4
 GOOGLE_CLOUD_STORAGE_BUCKET=tu-bucket
+
+# Vertex AI Configuration
+VERTEX_AI_MODEL=gemini-2.5-flash-lite
+VERTEX_AI_LOCATION=us-east4
+
+# RAG Configuration
+RAG_EMBEDDING_MODEL=text-embedding-004
 ```
 
 2. Habilita las APIs necesarias:
 
 ```bash
 gcloud services enable aiplatform.googleapis.com
-gcloud services enable discoveryengine.googleapis.com
+gcloud services enable storage.googleapis.com
 ```
 
 ## Uso Local
@@ -109,24 +119,28 @@ seminal de tu interés. Puedo:
 ¿Cómo puedo ayudarte hoy?
 ```
 
-## Configuración de RAG
+## Sistema RAG con Embeddings
 
-El agente incluye capacidades de RAG para buscar en documentos personalizados.
+El agente incluye un sistema de RAG (Retrieval Augmented Generation) que indexa automáticamente documentos PDF con embeddings para búsqueda semántica.
 
-### Configurar Vertex AI Search
+### Características del RAG
 
+- **Indexación automática**: Los PDFs subidos se indexan automáticamente con embeddings
+- **Procesamiento multimodal**: Extrae texto, imágenes y tablas de los PDFs usando Gemini
+- **Búsqueda semántica**: Encuentra información relevante usando similitud coseno
+- **Almacenamiento en GCS**: Los embeddings se guardan en `gs://{BUCKET}/rag_documents/`
+
+### Configuración
+
+El sistema RAG se configura automáticamente. Solo necesitas:
+
+1. Configurar el bucket en `.env`:
 ```bash
-# Crear datastore
-make rag-create
-
-# Subir documentos
-make rag-upload DOCS_DIR=./documents
-
-# Importar al datastore
-make rag-import
+GOOGLE_CLOUD_STORAGE_BUCKET=tu-bucket
+RAG_EMBEDDING_MODEL=text-embedding-004
 ```
 
-Para más detalles, consulta [RAG_SETUP.md](RAG_SETUP.md).
+2. Los documentos se indexan automáticamente cuando el agente los recibe
 
 ## Deployment a Cloud Run
 
@@ -157,23 +171,26 @@ make clean                  # Limpiar archivos temporales
 
 ```
 .
-├── academic_research/       # Código del agente principal
-│   ├── agent.py            # Configuración del agente coordinador
-│   ├── prompt.py           # Prompts del sistema
-│   ├── tools/              # Herramientas personalizadas (RAG)
-│   └── sub_agents/         # Sub-agentes especializados
-├── rag/                    # Scripts de configuración RAG
-│   ├── setup_rag.py        # Crear/gestionar datastores
-│   └── index_documents.py  # Indexar documentos
-├── deployment/             # Scripts de deployment
-│   ├── deploy.py           # Deploy a Vertex AI Agent Engine
-│   └── test_deployment.py  # Testing de agentes desplegados
-├── tests/                  # Tests unitarios
-├── eval/                   # Evaluaciones del agente
-├── Dockerfile             # Para deployment en Cloud Run
-├── Makefile               # Automatización de tareas
-├── pyproject.toml         # Dependencias del proyecto
-└── README.md              # Este archivo
+├── academic_research/          # Código del agente principal
+│   ├── agent.py               # Configuración del agente coordinador
+│   ├── prompt.py              # Prompts del sistema
+│   ├── tools/                 # Herramientas personalizadas
+│   │   ├── document_storage.py  # Sistema de embeddings y storage
+│   │   ├── index_document.py    # Tool para indexar documentos
+│   │   └── rag_search.py        # Búsqueda semántica
+│   └── sub_agents/            # Sub-agentes especializados
+│       ├── academic_newresearch/  # Sugerir nuevas direcciones
+│       └── academic_websearch/    # Búsqueda de papers citantes
+├── .scripts/                  # Scripts de utilidad
+│   ├── deployment/           # Scripts de deployment
+│   ├── eval/                 # Evaluaciones del agente
+│   ├── rag/                  # Configuración RAG avanzada
+│   └── tests/                # Tests unitarios
+├── .adkignore                # Archivos ignorados por ADK
+├── Dockerfile                # Para deployment en Cloud Run
+├── Makefile                  # Automatización de tareas
+├── requirements.txt          # Dependencias del proyecto
+└── README.md                 # Este archivo
 ```
 
 ## Desarrollo
@@ -273,9 +290,10 @@ Licensed under the Apache License, Version 2.0
 ## Recursos
 
 - [Google ADK Documentation](https://ai.google.dev/adk)
+- [Google ADK Samples](https://github.com/google/adk-samples)
 - [Vertex AI](https://cloud.google.com/vertex-ai)
 - [Cloud Run](https://cloud.google.com/run)
-- [Vertex AI Search](https://cloud.google.com/generative-ai-app-builder)
+- [Text Embeddings](https://cloud.google.com/vertex-ai/generative-ai/docs/embeddings/get-text-embeddings)
 
 ## Notas para DevFest
 
