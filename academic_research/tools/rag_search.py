@@ -126,10 +126,7 @@ def _search_with_embeddings(
     query: str, project_id: str, location: str, max_results: int
 ) -> str:
     """
-    Perform semantic search using text embeddings and vector similarity.
-
-    This is a fallback method when Vertex AI Search is not configured.
-    It uses Vertex AI text embeddings to perform semantic search.
+    Perform semantic search using Vertex AI RAG Engine.
 
     Args:
         query: Search query
@@ -140,25 +137,50 @@ def _search_with_embeddings(
     Returns:
         Formatted search results
     """
-    from .document_storage import get_store
-
     try:
-        store = get_store()
-        results = store.search(query, max_results)
+        from vertexai import rag
+        import vertexai
 
-        if not results:
+        vertexai.init(project=project_id, location=location)
+
+        rag_corpus_name = os.getenv("RAG_CORPUS_NAME")
+        if not rag_corpus_name:
+            return (
+                "RAG corpus not configured. Please set RAG_CORPUS_NAME in .env\n"
+                "To create a corpus: python .scripts/rag/setup_rag.py --action=create"
+            )
+
+        rag_retrieval_config = rag.RagRetrievalConfig(
+            top_k=max_results,
+            filter=rag.Filter(vector_distance_threshold=0.3),
+        )
+
+        response = rag.retrieval_query(
+            rag_resources=[
+                rag.RagResource(
+                    rag_corpus=rag_corpus_name,
+                )
+            ],
+            text=query,
+            rag_retrieval_config=rag_retrieval_config,
+        )
+
+        if not response or not hasattr(response, 'contexts'):
             return "No relevant documents found for the query."
 
         formatted_results = []
-        for title, chunk, similarity in results:
+        for idx, context in enumerate(response.contexts.contexts[:max_results], 1):
             formatted_results.append(
-                f"**{title}** (similarity: {similarity:.2f})\n{chunk}\n"
+                f"**Result {idx}**\n{context.text}\n"
+                f"Source: {context.source_uri if hasattr(context, 'source_uri') else 'N/A'}"
             )
 
         return "\n---\n".join(formatted_results)
 
+    except ImportError:
+        return "Vertex AI SDK not available. Install with: pip install google-cloud-aiplatform"
     except Exception as e:
-        return f"Error searching documents: {str(e)}"
+        return f"Error searching RAG corpus: {str(e)}"
 
 
 rag_search_tool = FunctionTool(_rag_search_impl)
