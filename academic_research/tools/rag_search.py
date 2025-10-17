@@ -1,119 +1,80 @@
-# Copyright 2025 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-"""RAG search tool for retrieving relevant information from indexed documents."""
+"""RAG search tool using Vertex AI RAG Engine."""
 
 import os
-from typing import Any, TYPE_CHECKING
-
-from google.adk.tools.retrieval.vertex_ai_rag_retrieval import VertexAiRagRetrieval
-from google.adk.tools.tool_context import ToolContext
-from google.genai import types
-from typing_extensions import override
-from google.adk.utils.model_name_utils import is_gemini_2_model
-
-if TYPE_CHECKING:
-    from google.adk.models import LlmRequest
+from google.adk.tools import FunctionTool
+from vertexai.preview import rag
+import vertexai
 
 
-class ConditionalRagRetrieval(VertexAiRagRetrieval):
+def rag_search(query: str) -> str:
     """
-    A RAG retrieval tool that conditionally disables itself when multimodal content is present.
+    Search through indexed documents using RAG (Retrieval Augmented Generation).
 
-    Gemini's RAG grounding doesn't support multimodal inputs (PDFs, images), so we skip
-    RAG when files are attached and only use it for text-only queries.
-    """
+    This tool searches through a collection of documents that have been previously
+    indexed in Vertex AI RAG Engine and returns the most relevant passages.
 
-    @override
-    async def process_llm_request(
-        self,
-        *,
-        tool_context: ToolContext,
-        llm_request: 'LlmRequest',
-    ) -> None:
-        # Check if there are any non-text parts in the contents
-        has_multimodal_content = False
-
-        if llm_request.contents:
-            for content in llm_request.contents:
-                if hasattr(content, 'parts'):
-                    for part in content.parts:
-                        # If part is not just text, it's multimodal
-                        if not isinstance(part, types.Part) or not hasattr(part, 'text'):
-                            # Check if it has file_data, inline_data, or other non-text attributes
-                            if hasattr(part, 'file_data') or hasattr(part, 'inline_data'):
-                                has_multimodal_content = True
-                                break
-                            # For types.Part, check if it's actually text
-                            if isinstance(part, types.Part):
-                                # If it doesn't have text attribute or text is None, it's likely multimodal
-                                if not hasattr(part, 'text') or (hasattr(part, 'text') and part.text is None):
-                                    has_multimodal_content = True
-                                    break
-                if has_multimodal_content:
-                    break
-
-        # Only add RAG if there's no multimodal content
-        if not has_multimodal_content:
-            # Use the parent class logic to add RAG grounding
-            await super().process_llm_request(
-                tool_context=tool_context,
-                llm_request=llm_request
-            )
-        # If has_multimodal_content, we skip adding RAG grounding entirely
-
-
-def get_rag_search_tool():
-    """
-    Create and return a Vertex AI RAG retrieval tool configured from environment variables.
+    Args:
+        query: The search query or question to find relevant information for.
 
     Returns:
-        ConditionalRagRetrieval: Configured RAG retrieval tool
+        A string containing the most relevant passages found in the documents.
     """
-    project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
-    location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
-    rag_corpus_id = os.getenv("RAG_CORPUS_NAME")
+    try:
+        project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+        location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-east4")
+        rag_corpus_id = os.getenv("RAG_CORPUS_NAME")
 
-    if not project_id:
-        raise ValueError("GOOGLE_CLOUD_PROJECT environment variable not set")
+        if not project_id:
+            return "Error: GOOGLE_CLOUD_PROJECT environment variable not set."
 
-    if not rag_corpus_id:
-        raise ValueError("RAG_CORPUS_NAME environment variable not set")
+        if not rag_corpus_id:
+            return "Error: RAG_CORPUS_NAME environment variable not set."
 
-    # Build full corpus resource name if only corpus ID is provided
-    if not rag_corpus_id.startswith("projects/"):
-        rag_corpus_name = (
-            f"projects/{project_id}/locations/{location}/ragCorpora/{rag_corpus_id}"
+        # Initialize Vertex AI
+        vertexai.init(project=project_id, location=location)
+
+        # Build full corpus resource name
+        if not rag_corpus_id.startswith("projects/"):
+            corpus_name = (
+                f"projects/{project_id}/locations/{location}/ragCorpora/{rag_corpus_id}"
+            )
+        else:
+            corpus_name = rag_corpus_id
+
+        # Perform RAG retrieval query
+        response = rag.retrieval_query(
+            rag_resources=[rag.RagResource(rag_corpus=corpus_name)],
+            text=query,
+            similarity_top_k=5,
+            vector_distance_threshold=0.5,
         )
-    else:
-        rag_corpus_name = rag_corpus_id
 
-    return ConditionalRagRetrieval(
-        name="rag_search",
-        description=(
-            "Search through indexed documents using RAG (Retrieval Augmented Generation). "
-            "This tool searches through a collection of documents that have been previously "
-            "indexed and returns the most relevant passages based on the query."
-        ),
-        rag_corpora=[rag_corpus_name],
-        similarity_top_k=5,
-        vector_distance_threshold=0.3,
-    )
+        # Format results
+        if not response.contexts or not response.contexts.contexts:
+            return f"No relevant documents found for query: '{query}'"
+
+        results = []
+        for i, context in enumerate(response.contexts.contexts, 1):
+            # Extract text and metadata
+            text = context.text[:500]  # Limit to 500 chars per context
+            distance = context.distance
+
+            # Try to get source info
+            source = "Unknown source"
+            if hasattr(context, 'source_uri') and context.source_uri:
+                source = context.source_uri
+
+            results.append(
+                f"**Result {i}** (similarity: {1-distance:.2f})\n"
+                f"{text}...\n"
+                f"Source: {source}\n"
+            )
+
+        return "\n---\n".join(results)
+
+    except Exception as e:
+        return f"Error performing RAG search: {str(e)}"
 
 
-# Create the tool instance
-rag_search_tool = get_rag_search_tool()
-
-# Also export as rag_search for backwards compatibility
-rag_search = rag_search_tool
+# Wrap the function in a FunctionTool
+rag_search = FunctionTool(rag_search)

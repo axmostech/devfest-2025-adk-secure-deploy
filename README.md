@@ -71,16 +71,16 @@ pip install -r requirements.txt
 ```bash
 # Google Cloud Configuration
 GOOGLE_CLOUD_PROJECT=tu-proyecto-id
-GOOGLE_CLOUD_REGION=us-east4
-GOOGLE_CLOUD_LOCATION=us-east4
+GOOGLE_CLOUD_REGION=us-central1
+GOOGLE_CLOUD_LOCATION=us-central1
 GOOGLE_CLOUD_STORAGE_BUCKET=tu-bucket
 
 # Vertex AI Configuration
-VERTEX_AI_MODEL=gemini-2.5-flash-lite
-VERTEX_AI_LOCATION=us-east4
+VERTEX_AI_MODEL=gemini-2.5-pro
+VERTEX_AI_LOCATION=us-central1
 
-# RAG Configuration
-RAG_EMBEDDING_MODEL=text-embedding-004
+# RAG Configuration (Vertex AI RAG Engine)
+RAG_CORPUS_NAME=tu-corpus-id
 ```
 
 2. Habilita las APIs necesarias:
@@ -119,28 +119,53 @@ seminal de tu interés. Puedo:
 ¿Cómo puedo ayudarte hoy?
 ```
 
-## Sistema RAG con Embeddings
+## Sistema RAG con Vertex AI RAG Engine
 
-El agente incluye un sistema de RAG (Retrieval Augmented Generation) que indexa automáticamente documentos PDF con embeddings para búsqueda semántica.
+El agente incluye integración con Vertex AI RAG Engine para búsqueda semántica en documentos indexados.
 
 ### Características del RAG
 
-- **Indexación automática**: Los PDFs subidos se indexan automáticamente con embeddings
-- **Procesamiento multimodal**: Extrae texto, imágenes y tablas de los PDFs usando Gemini
-- **Búsqueda semántica**: Encuentra información relevante usando similitud coseno
-- **Almacenamiento en GCS**: Los embeddings se guardan en `gs://{BUCKET}/rag_documents/`
+- **Vertex AI RAG Engine**: Usa el servicio nativo de Google Cloud para RAG
+- **Búsqueda semántica**: Encuentra información relevante usando vectores de embeddings
+- **Corpus gestionado**: Los documentos se indexan en un RAG Corpus de Vertex AI
+- **Procesamiento multimodal**: El agente puede analizar PDFs directamente con Gemini
 
-### Configuración
+### Configuración del RAG Corpus
 
-El sistema RAG se configura automáticamente. Solo necesitas:
+1. Crear un RAG Corpus en Vertex AI:
 
-1. Configurar el bucket en `.env`:
 ```bash
-GOOGLE_CLOUD_STORAGE_BUCKET=tu-bucket
-RAG_EMBEDDING_MODEL=text-embedding-004
+# Crear corpus
+gcloud ai indexes create \
+  --display-name="academic-research-corpus" \
+  --metadata-file=corpus-config.json \
+  --region=us-central1
+
+# Obtener el Corpus ID
+gcloud ai indexes list --region=us-central1
 ```
 
-2. Los documentos se indexan automáticamente cuando el agente los recibe
+2. Importar documentos al corpus:
+
+```bash
+# Subir PDFs a Cloud Storage
+gsutil cp documents/*.pdf gs://tu-bucket/rag-docs/
+
+# Importar al corpus
+gcloud ai indexes import \
+  --index=CORPUS_ID \
+  --data-source=gs://tu-bucket/rag-docs/ \
+  --region=us-central1
+```
+
+3. Configurar el Corpus ID en `.env`:
+```bash
+RAG_CORPUS_NAME=tu-corpus-id
+```
+
+### Uso del RAG
+
+El agente usa automáticamente el RAG cuando los usuarios hacen preguntas sobre documentos indexados. La herramienta `rag_search` busca en el corpus y devuelve los pasajes más relevantes.
 
 ## Deployment a Cloud Run
 
@@ -175,16 +200,13 @@ make clean                  # Limpiar archivos temporales
 │   ├── agent.py               # Configuración del agente coordinador
 │   ├── prompt.py              # Prompts del sistema
 │   ├── tools/                 # Herramientas personalizadas
-│   │   ├── document_storage.py  # Sistema de embeddings y storage
-│   │   ├── index_document.py    # Tool para indexar documentos
-│   │   └── rag_search.py        # Búsqueda semántica
+│   │   └── rag_search.py     # Búsqueda en RAG corpus
 │   └── sub_agents/            # Sub-agentes especializados
 │       ├── academic_newresearch/  # Sugerir nuevas direcciones
 │       └── academic_websearch/    # Búsqueda de papers citantes
 ├── .scripts/                  # Scripts de utilidad
 │   ├── deployment/           # Scripts de deployment
 │   ├── eval/                 # Evaluaciones del agente
-│   ├── rag/                  # Configuración RAG avanzada
 │   └── tests/                # Tests unitarios
 ├── .adkignore                # Archivos ignorados por ADK
 ├── Dockerfile                # Para deployment en Cloud Run
@@ -240,12 +262,9 @@ El agente puede ser personalizado para adaptarse mejor a tus necesidades:
 - `make eval` - Ejecutar evaluaciones
 - `make format` - Formatear código
 
-### RAG Setup
-- `make rag-create` - Crear datastore de Vertex AI Search
-- `make rag-upload DOCS_DIR=/path` - Subir documentos
-- `make rag-import` - Importar documentos al datastore
-- `make rag-list` - Listar datastores
-- `make rag-delete` - Eliminar datastore
+### RAG Setup (Vertex AI RAG Engine)
+Los comandos RAG deben ejecutarse manualmente usando gcloud CLI.
+Ver la sección "Sistema RAG con Vertex AI RAG Engine" para más detalles.
 
 ### Deployment
 - `make build` - Construir imagen Docker
