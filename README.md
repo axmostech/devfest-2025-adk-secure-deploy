@@ -39,7 +39,7 @@ Esta capacidad tiene como objetivo proporcionar a los investigadores informació
 
 Este diagrama muestra la arquitectura detallada de los agentes y herramientas utilizadas para implementar este flujo de trabajo.
 
-<img src="academic-research.svg" alt="academic researcher" width="800"/>
+<img src="academic-research.png" alt="academic researcher" width="800"/>
 
 ## Configuración e Instalación
 
