@@ -1,6 +1,17 @@
-# Investigación Académica con ADK
+<div align="center">
+  <img src="axmos.webp" alt="Axmos Logo" width="200"/>
 
-> Basado en el sample de [google/adk-samples](https://github.com/google/adk-samples) con mejoras de RAG semántico y procesamiento multimodal.
+  # Investigación Académica con ADK
+
+  **Desarrollado por [Axmos Technologies](https://www.axmos.tech/)**
+  *Fastest growing Google Cloud Partner in The Americas*
+
+  [![Google Cloud](https://img.shields.io/badge/Google%20Cloud-Partner-4285F4?logo=google-cloud&logoColor=white)](https://www.axmos.tech/)
+  [![Vertex AI](https://img.shields.io/badge/Vertex%20AI-RAG%20Engine-4285F4?logo=google-cloud&logoColor=white)](https://cloud.google.com/vertex-ai)
+  [![Gemini](https://img.shields.io/badge/Gemini-2.5%20Pro-8E75B2?logo=google-gemini&logoColor=white)](https://ai.google.dev/)
+
+  > Basado en el sample de [google/adk-samples](https://github.com/google/adk-samples) con mejoras de RAG semántico y procesamiento multimodal.
+</div>
 
 ## Descripción General
 
@@ -308,11 +319,20 @@ Licensed under the Apache License, Version 2.0
 
 ## Recursos
 
+### Google Cloud & ADK
 - [Google ADK Documentation](https://ai.google.dev/adk)
 - [Google ADK Samples](https://github.com/google/adk-samples)
 - [Vertex AI](https://cloud.google.com/vertex-ai)
 - [Cloud Run](https://cloud.google.com/run)
 - [Text Embeddings](https://cloud.google.com/vertex-ai/generative-ai/docs/embeddings/get-text-embeddings)
+
+### Axmos Technologies
+- 🌐 **Website**: [axmos.tech](https://www.axmos.tech/)
+- 🏆 **Google Cloud Sales Partner of the Year 2024** (Chile)
+- 🚀 **Services**: Cloud Migration | Data & AI | Management as a Service | Cloud FinOps
+- 📍 **Locations**: United States | Canada | Portugal | Chile | Colombia
+
+*Axmos Technologies - Technologies that solve business challenges*
 
 ## Notas para DevFest
 
