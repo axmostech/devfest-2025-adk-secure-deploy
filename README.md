@@ -328,7 +328,9 @@ Licensed under the Apache License, Version 2.0
 
 ### Axmos Technologies
 - 🌐 **Website**: [axmos.tech](https://www.axmos.tech/)
-- 🏆 **Google Cloud Sales Partner of the Year 2024** (Chile)
+- 🏆 **Google Cloud Partner of the Year in Sales 2024** (Chile)
+- 🏆 **Google Cloud Partner of the Year Infrastructure Modernization 2025** (LatinAmerica)
+- 🏆 **Google Cloud Partner of the Year for Emerging Markets 2025** (LatinAmerica)
 - 🚀 **Services**: Cloud Migration | Data & AI | Management as a Service | Cloud FinOps
 - 📍 **Locations**: United States | Canada | Portugal | Chile | Colombia
 
