@@ -241,12 +241,13 @@ deploy-cloudrun: push
 		--image $(IMAGE_NAME):$(TAG) \
 		--platform managed \
 		--region $(REGION) \
-		--set-env-vars="GOOGLE_CLOUD_PROJECT=$(PROJECT_ID),GOOGLE_CLOUD_LOCATION=$(LOCATION),GOOGLE_GENAI_USE_VERTEXAI=true" \
+		--set-env-vars="GOOGLE_CLOUD_PROJECT=$(PROJECT_ID),GOOGLE_CLOUD_LOCATION=$(LOCATION),GOOGLE_GENAI_USE_VERTEXAI=true,RAG_CORPUS_NAME=$(RAG_CORPUS_NAME)" \
 		--memory=4Gi \
+		--service-account="$(SA_NAME)@$(PROJECT_ID).iam.gserviceaccount.com" \
 		--cpu=2 \
 		--timeout=900 \
-		--ingress=internal-and-cloud-load-balancing \ 
 		--max-instances=5
+
 	@echo "Deployment completed"
 	@echo "Service URL:"
 	@gcloud run services describe $(SERVICE_NAME) --region=$(REGION) --format="value(status.url)"
