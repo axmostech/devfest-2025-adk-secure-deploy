@@ -332,7 +332,7 @@ Licensed under the Apache License, Version 2.0
 - 🏆 **Google Cloud Partner of the Year Infrastructure Modernization 2025** (LatinAmerica)
 - 🏆 **Google Cloud Partner of the Year for Emerging Markets 2025** (LatinAmerica)
 - 🚀 **Services**: Cloud Migration | Data & AI | Management as a Service | Cloud FinOps
-- 📍 **Locations**: United States | Canada | Portugal | Chile | Colombia
+- 📍 **Locations**: United States | Mexico | Perú | Chile | Colombia
 
 *Axmos Technologies - Technologies that solve business challenges*
 
